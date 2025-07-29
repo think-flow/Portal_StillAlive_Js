@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<title></title>
+		<link rel="stylesheet" href="css/xterm.css" />
+		<link rel="stylesheet" href="css/style.css" />
+		<script src="js/core.js"></script>
+		<script src="js/xterm/xterm.js"></script>
+		<script src="js/xterm/addon-fit.js"></script>
+		<script src="js/stage.js"></script>
+		<script type="text/javascript">
+			// 字体颜色#1b82f1
+			var hintString = '\x1B[1;38;2;27;130;241mstill-alive\x1B[0m $ ';
+
+			document.addEventListener('plusready', async function() {
+				//console.log("所有plus api都应该在此事件发生后调用，否则会出现plus is undefined。")
+
+				// 设置两次退出
+				setDoubleBack();
+
+				//设置全屏显示
+				plus.navigator.setFullscreen(true);
+
+				window.term = new Terminal({
+					fontSize: 15,
+					cursorBlink: true,
+				});
+				let fitAddon = new FitAddon.FitAddon()
+				term.loadAddon(fitAddon)
+				term.open(document.getElementById('terminal'));
+				// 延迟300毫秒解决 fitAddon.fit 无法让 xterm.js 在安卓上正确全屏的问题
+				await ccore.sleep(300);
+				fitAddon.fit();
+				console.log("termianl cols", term.cols)
+				console.log("termianl rows", term.rows)
+
+				term.write(hintString);
+				term.focus();
+
+				//手机端，禁止弹出虚拟键盘，因为不需要与终端交互
+				term.textarea.readOnly = true;
+				term.textarea.tabIndex = -1;
+				
+				//开启屏幕长亮
+				plus.device.setWakelock(true);
+				
+				let stage = null;
+				try {
+					stage = new Stage();
+					await stage.run();
+					if (stage) {
+						stage.stop();
+						term.write('Thank you for listening');
+					}
+				} catch (error) {
+					if (stage) {
+						stage.stop();
+					}
+					term.writeln(error.message);
+				}
+				
+				//等待3秒关闭屏幕长亮
+				await ccore.sleep(3000);
+				plus.device.setWakelock(false);
+			});
+
+			function setDoubleBack() {
+				let exitConfirm = false; // 标记是否已触发第一次退出提示
+				let timer = null; // 定时器
+				plus.key.addEventListener('backbutton', () => {
+					if (!exitConfirm) {
+						exitConfirm = true;
+						plus.nativeUI.toast('再按一次退出应用');
+						timer = setTimeout(() => {
+							exitConfirm = false
+						}, 2000);
+					} else {
+						clearTimeout(timer);
+						plus.runtime.quit();
+					}
+				});
+			}
+		</script>
+	</head>
+	<body>
+		<div id="terminal"></div>
+		<script>
+			// todo 直接引用js文件
+			window.onload = async function() {
+				// app环境，在等待在plusready事件中执行代码
+				if (ccore.isPlusAppByUA()) {
+					return;
+				}
+				// 浏览器环境，直接运行
+
+				// 添加audio标签用来播放音乐
+				const audio = document.createElement('audio');
+				audio.id = 'player';
+				audio.src = 'audio/sa1.mp3';
+				document.body.appendChild(audio);
+
+				window.term = new Terminal({
+					fontSize: 20,
+					cursorBlink: true
+				});
+				window.fitAddon = new FitAddon.FitAddon()
+				term.loadAddon(fitAddon)
+				term.open(document.getElementById('terminal'));
+				fitAddon.fit();
+				console.log("termianl cols", term.cols)
+				console.log("termianl rows", term.rows)
+
+				// 浏览器端需要一次用户交互才能播放音乐，所以提醒用户按回车键
+				term.write(hintString + 'press enter key to play');
+				term.focus();
+
+				let stage = null;
+				term.onKey(async keyEvent => {
+					let key = keyEvent.key;
+					if (key === '\r') {
+						term.write('\r\n' + hintString);
+
+						try {
+							stage = new Stage();
+							await stage.run();
+							if (stage) {
+								stage.stop();
+								term.write('Thank you for listening');
+							}
+						} catch (error) {
+							if (stage) {
+								stage.stop();
+							}
+							term.writeln(error.message);
+						}
+
+					} else if (key === '\x03') {
+						// 浏览器端支持ctrl+c退出
+						if (stage) {
+							stage.stop();
+							stage = null;
+							term.write('\r\n' + hintString + 'Got it! Exiting...');
+							term.write('\r\n' + hintString + 'press enter key to play');
+						}
+					}
+				});
+			}
+		</script>
+	</body>
+</html>
