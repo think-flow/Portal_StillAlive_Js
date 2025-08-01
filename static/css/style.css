@@ -10,6 +10,7 @@ body {
 	/* 防止滚动条 */
 	overflow: hidden;
 	font-family: 'courier-new';
+	background-color: black;
 }
 
 #terminal {

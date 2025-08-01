@@ -20,8 +20,10 @@
 				// 设置两次退出
 				setDoubleBack();
 
-				//设置全屏显示
+				// 设置全屏显示
 				plus.navigator.setFullscreen(true);
+				// 隐藏导航栏
+				plus.navigator.hideSystemNavigation();
 
 				window.term = new Terminal({
 					fontSize: 13,
@@ -41,11 +43,11 @@
 				term.write(hintString);
 				term.focus();
 
-				//手机端，禁止弹出虚拟键盘，因为不需要与终端交互
+				// 手机端，禁止弹出虚拟键盘，因为不需要与终端交互
 				term.textarea.readOnly = true;
 				term.textarea.tabIndex = -1;
 
-				//开启屏幕长亮
+				// 开启屏幕长亮
 				plus.device.setWakelock(true);
 
 				let stage = null;
@@ -63,7 +65,7 @@
 					term.writeln(error.message);
 				}
 
-				//等待3秒关闭屏幕长亮
+				// 等待3秒关闭屏幕长亮
 				await ccore.sleep(3000);
 				plus.device.setWakelock(false);
 			});
@@ -89,7 +91,6 @@
 	<body>
 		<div id="terminal"></div>
 		<script>
-			// todo 直接引用js文件
 			window.onload = async function() {
 				// app环境，在等待在plusready事件中执行代码
 				if (ccore.isPlusAppByUA()) {
