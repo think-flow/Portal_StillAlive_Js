@@ -56,9 +56,16 @@ pub fn main() !void {
             return err;
         };
 
-        printLn("Server listen on http://{}", .{address});
+        var buf: [32]u8 = undefined;
+        const address_str = try std.fmt.bufPrint(&buf, "http://{}", .{address});
+        printLn("Server listen on {s}", .{address_str});
         printLn("Press ctrl+c to exit", .{});
         printLn("visited this address to play still-alive", .{});
+
+        // 启动成功后，自动打开浏览器进行访问
+        var thread = try std.Thread.spawn(.{}, openInBrowser, .{ address_str, allocator });
+        thread.detach();
+
         while (true) {
             try handleConnection(try server.accept(), allocator);
         }
@@ -67,7 +74,7 @@ pub fn main() !void {
     }
 }
 
-fn handleConnection(conn: std.net.Server.Connection, allocator: anytype) !void {
+fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocator) !void {
     defer conn.stream.close();
 
     var buffer: [1024]u8 = undefined;
@@ -154,7 +161,7 @@ pub fn printLn(comptime fmt: []const u8, args: anytype) void {
     print(fmt ++ "\n", args);
 }
 
-fn replaceSlash(input: []const u8, allocator: anytype) ![]const u8 {
+fn replaceSlash(input: []const u8, allocator: std.mem.Allocator) ![]const u8 {
     var result = std.ArrayList(u8).init(allocator);
     defer result.deinit();
 
@@ -175,4 +182,18 @@ fn response(
         .version = .@"HTTP/1.1",
         .extra_headers = if (headers == null) &[_]std.http.Header{} else headers.?,
     });
+}
+
+fn openInBrowser(url: []const u8, allocator: std.mem.Allocator) !void {
+    std.Thread.sleep(1 * std.time.ns_per_s);
+    const args: []const []const u8 = switch (@import("builtin").os.tag) {
+        .windows => &[_][]const u8{ "cmd", "/C", "start", url },
+        .macos => &[_][]const u8{ "open", url },
+        .linux, .freebsd => &[_][]const u8{ "xdg-open", url },
+        else => return error.UnsupportedPlatform,
+    };
+    var process = std.process.Child.init(args, allocator);
+    process.stderr_behavior = .Ignore;
+    process.stdout_behavior = .Ignore;
+    try process.spawn();
 }
