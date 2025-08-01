@@ -16,13 +16,13 @@ class Stage {
 		let asciiArtWidth = 40;
 		let asciiArtHeight = 20;
 
-		let creditsWidth = Math.min((termColumns - 4) / 2, 56);
+		let creditsWidth = Math.min(Math.trunc((termColumns - 4) / 2), 56);
 		let creditsHeight = termLines - asciiArtHeight - 2;
 
 		let lyricWidth = termColumns - 4 - creditsWidth;
 		let lyricHeight = termLines - 2;
 
-		let asciiArtX = lyricWidth + 4 + (creditsWidth - asciiArtWidth) / 2;
+		let asciiArtX = lyricWidth + 4 + Math.trunc((creditsWidth - asciiArtWidth) / 2);
 		let asciiArtY = creditsHeight + 3;
 
 		let creditsPosX = lyricWidth + 4;
@@ -39,6 +39,7 @@ class Stage {
 
 	async run() {
 		return new Promise(async (resolve, reject) => {
+			console.log("stage ->",this);
 			this.#beginDraw();
 			this.#drawFrame();
 			this.#moveTo(2, 2);
