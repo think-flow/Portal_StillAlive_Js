@@ -127,6 +127,15 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: anytype) !void {
         return;
     }
 
+    //支持ttf字体文件下载
+    if (std.mem.endsWith(u8, file_path, ".ttf")) {
+        try response(&req, data, &[_]Header{
+            Header{ .name = "Content-Type", .value = "font/ttf" },
+            Header{ .name = "Cache-Control", .value = "max-age=31536000" },
+        });
+        return;
+    }
+
     try req.respond("not support this file", .{
         .status = .not_implemented,
         .version = .@"HTTP/1.1",
