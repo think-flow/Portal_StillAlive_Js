@@ -1,8 +1,15 @@
+@font-face {
+	font-family: 'courier-new';
+	src: url('../fonts/Courier-New.ttf') format('truetype');
+	font-display: swap;
+}
+
 body {
 	margin: 0;
 	padding: 0;
-	overflow: hidden;
 	/* 防止滚动条 */
+	overflow: hidden;
+	font-family: 'courier-new';
 }
 
 #terminal {

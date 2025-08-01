@@ -3,8 +3,8 @@
     "id" : "H50ADC6B3", /*应用的标识*/
     "name" : "PortalStillAlive", /*应用名称，程序桌面图标名称*/
     "version" : {
-        "name" : "1.02", /*应用版本名称*/
-        "code" : 102
+        "name" : "1.03", /*应用版本名称*/
+        "code" : 103
     },
     "description" : "播放传送门经典主题曲《Still Alive》", /*应用描述信息*/
     "icons" : {

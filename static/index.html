@@ -24,7 +24,7 @@
 				plus.navigator.setFullscreen(true);
 
 				window.term = new Terminal({
-					fontSize: 15,
+					fontSize: 13,
 					cursorBlink: true,
 				});
 				let fitAddon = new FitAddon.FitAddon()
@@ -33,8 +33,10 @@
 				// 延迟300毫秒解决 fitAddon.fit 无法让 xterm.js 在安卓上正确全屏的问题
 				await ccore.sleep(300);
 				fitAddon.fit();
-				console.log("termianl cols", term.cols)
-				console.log("termianl rows", term.rows)
+				console.log("termianl size ->", JSON.stringify({
+					cols: term.cols,
+					rows: term.rows
+				}, null, 2));
 
 				term.write(hintString);
 				term.focus();
@@ -42,10 +44,10 @@
 				//手机端，禁止弹出虚拟键盘，因为不需要与终端交互
 				term.textarea.readOnly = true;
 				term.textarea.tabIndex = -1;
-				
+
 				//开启屏幕长亮
 				plus.device.setWakelock(true);
-				
+
 				let stage = null;
 				try {
 					stage = new Stage();
@@ -60,7 +62,7 @@
 					}
 					term.writeln(error.message);
 				}
-				
+
 				//等待3秒关闭屏幕长亮
 				await ccore.sleep(3000);
 				plus.device.setWakelock(false);
@@ -109,8 +111,10 @@
 				term.loadAddon(fitAddon)
 				term.open(document.getElementById('terminal'));
 				fitAddon.fit();
-				console.log("termianl cols", term.cols)
-				console.log("termianl rows", term.rows)
+				console.log("termianl size ->", JSON.stringify({
+					cols: term.cols,
+					rows: term.rows
+				}, null, 2));
 
 				// 浏览器端需要一次用户交互才能播放音乐，所以提醒用户按回车键
 				term.write(hintString + 'press enter key to play');

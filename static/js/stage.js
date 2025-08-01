@@ -39,7 +39,7 @@ class Stage {
 
 	async run() {
 		return new Promise(async (resolve, reject) => {
-			console.log("stage ->",this);
+			console.log("stage ->", JSON.stringify(this, null, 2));
 			this.#beginDraw();
 			this.#drawFrame();
 			this.#moveTo(2, 2);
@@ -82,7 +82,7 @@ class Stage {
 
 	stop() {
 		this.#isEnd = true;
-		
+
 		// 给其他worker发送abort信号
 		if (this.#workerPort) {
 			this.#workerPort.postMessage('abort');
