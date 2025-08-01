@@ -4,7 +4,7 @@ let port;
 let stage;
 let workerPort;
 self.onmessage = async (e) => {
-	console.info("lyric worker running")
+	console.log("lyric worker running")
 	stage = e.data;
 	port = e.ports[0];
 

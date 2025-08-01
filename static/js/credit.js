@@ -3,7 +3,7 @@ importScripts('data/credit-data.js', 'collection.js', 'core.js');
 let port;
 let stage;
 self.onmessage = async (e) => {
-	console.info("credit worker running")
+	console.log("credit worker running")
 	stage = e.data;
 	port = e.ports[0];
 
