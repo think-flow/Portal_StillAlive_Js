@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "portal_still_alive_js",
+        .name = "portal_still_alive",
         .root_source_file = b.path("main.zig"),
         .optimize = optimize,
         .target = target,
