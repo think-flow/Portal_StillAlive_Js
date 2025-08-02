@@ -67,7 +67,10 @@ pub fn main() !void {
         thread.detach();
 
         while (true) {
-            try handleConnection(try server.accept(), allocator);
+            defer _ = arena.reset(.retain_capacity);
+            const conn = try server.accept();
+            var request_thread = try std.Thread.spawn(.{}, handleConnection, .{ conn, allocator });
+            request_thread.detach();
         }
 
         break;
@@ -77,7 +80,7 @@ pub fn main() !void {
 fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocator) !void {
     defer conn.stream.close();
 
-    var buffer: [1024]u8 = undefined;
+    var buffer: [1024 * 512]u8 = undefined;
     var http_server = std.http.Server.init(conn, &buffer);
     var req = try http_server.receiveHead();
     var request_path = req.head.target;
