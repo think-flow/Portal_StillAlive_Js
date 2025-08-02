@@ -18,6 +18,8 @@ const EmbeddedAsset = struct {
 // css\style.css
 const embeddedFilesMap = std.StaticStringMap([]const u8).initComptime(genMap());
 
+var PRINT_LOCK = std.Thread.Mutex{};
+
 fn genMap() [assets.files.len]EmbeddedAsset {
     var embassets: [assets.files.len]EmbeddedAsset = undefined;
     comptime var i = 0;
@@ -58,9 +60,9 @@ pub fn main() !void {
 
         var buf: [32]u8 = undefined;
         const address_str = try std.fmt.bufPrint(&buf, "http://{}", .{address});
-        printLn("Server listen on {s}", .{address_str});
+        printLn("Server listen on \x1b[1;33m{s}\x1b[0m", .{address_str});
         printLn("Press ctrl+c to exit", .{});
-        printLn("visited this address to play still-alive", .{});
+        printLn("visited this address to play still-alive\n", .{});
 
         // 启动成功后，自动打开浏览器进行访问
         var thread = try std.Thread.spawn(.{}, openInBrowser, .{ address_str, allocator });
@@ -82,15 +84,23 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
 
     var buffer: [1024 * 512]u8 = undefined;
     var http_server = std.http.Server.init(conn, &buffer);
-    var req = try http_server.receiveHead();
+    var req = http_server.receiveHead() catch |err| {
+        if (err == error.HttpConnectionClosing) {
+            return;
+        }
+        return err;
+    };
     var request_path = req.head.target;
-
-    // printLn("{s}", .{req.head.target});
 
     // 处理 根路径 "/"
     if (std.mem.eql(u8, request_path, "/")) {
         request_path = "/index.html";
     }
+
+    // 记录请求日志
+    const now = std.time.milliTimestamp();
+    const time = try formatTime(now, allocator);
+    printLn("\x1b[36m{s}\x1b[0m {s} {s}", .{ time, @tagName(req.head.method), request_path });
 
     // 处理其他路径
     //去掉 开头的 '/'' 并将其余'/' 替换为 '\'
@@ -112,6 +122,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".css")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "text/css; charset=utf-8" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -119,6 +130,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".js")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "application/javascript" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -133,6 +145,8 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".mp3")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "audio/mpeg" },
+            Header{ .name = "Accept-Ranges", .value = "bytes" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -141,7 +155,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".ttf")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "font/ttf" },
-            Header{ .name = "Cache-Control", .value = "max-age=31536000" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -161,6 +175,9 @@ pub fn print(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn printLn(comptime fmt: []const u8, args: anytype) void {
+    if (PRINT_LOCK.tryLock()) {
+        defer PRINT_LOCK.unlock();
+    }
     print(fmt ++ "\n", args);
 }
 
@@ -199,4 +216,22 @@ fn openInBrowser(url: []const u8, allocator: std.mem.Allocator) !void {
     process.stderr_behavior = .Ignore;
     process.stdout_behavior = .Ignore;
     try process.spawn();
+}
+
+fn formatTime(timestamp_ms: i64, allocator: std.mem.Allocator) ![]u8 {
+    const timezone_offset_sec: i64 = 8 * 3600; // UTC+8
+    const timezone_offset_ms: i64 = timezone_offset_sec * 1000;
+
+    // 应用时区偏移（毫秒）
+    const local_timestamp_ms = timestamp_ms + timezone_offset_ms;
+
+    const ms_per_day: i64 = 86400 * 1000;
+    const ms_since_midnight = @mod(local_timestamp_ms, ms_per_day);
+
+    const hours: u8 = @intCast(@mod(@divTrunc(ms_since_midnight, 3600 * 1000), 24));
+    const minutes: u8 = @intCast(@divTrunc(@mod(ms_since_midnight, 3600 * 1000), 60 * 1000));
+    const seconds: u8 = @intCast(@divTrunc(@mod(ms_since_midnight, 60 * 1000), 1000));
+    const millis: u16 = @intCast(@mod(ms_since_midnight, 1000));
+
+    return try std.fmt.allocPrint(allocator, "{d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}", .{ hours, minutes, seconds, millis });
 }
