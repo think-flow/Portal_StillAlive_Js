@@ -18,6 +18,8 @@ const EmbeddedAsset = struct {
 // css\style.css
 const embeddedFilesMap = std.StaticStringMap([]const u8).initComptime(genMap());
 
+var PRINT_LOCK = std.Thread.Mutex{};
+
 fn genMap() [assets.files.len]EmbeddedAsset {
     var embassets: [assets.files.len]EmbeddedAsset = undefined;
     comptime var i = 0;
@@ -36,6 +38,8 @@ const ports = [_]u16{
     35000, 40000, 45000,
 };
 
+var enable_log: bool = undefined;
+
 pub fn main() !void {
     // 如果是 Windows，设置控制台编码为 UTF-8
     if (@import("builtin").os.tag == .windows) {
@@ -45,6 +49,8 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    enable_log = try getLogArg(allocator);
 
     for (ports) |port| {
         const address = try std.net.Address.parseIp4("127.0.0.1", port);
@@ -58,7 +64,7 @@ pub fn main() !void {
 
         var buf: [32]u8 = undefined;
         const address_str = try std.fmt.bufPrint(&buf, "http://{}", .{address});
-        printLn("Server listen on {s}", .{address_str});
+        printLn("Server listen on \x1b[1;33m{s}\x1b[0m", .{address_str});
         printLn("Press ctrl+c to exit", .{});
         printLn("visited this address to play still-alive", .{});
 
@@ -82,14 +88,24 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
 
     var buffer: [1024 * 512]u8 = undefined;
     var http_server = std.http.Server.init(conn, &buffer);
-    var req = try http_server.receiveHead();
+    var req = http_server.receiveHead() catch |err| {
+        if (err == error.HttpConnectionClosing) {
+            return;
+        }
+        return err;
+    };
     var request_path = req.head.target;
-
-    // printLn("{s}", .{req.head.target});
 
     // 处理 根路径 "/"
     if (std.mem.eql(u8, request_path, "/")) {
         request_path = "/index.html";
+    }
+
+    // 记录请求日志
+    if (enable_log) {
+        const now = std.time.milliTimestamp();
+        const time = try formatTime(now, allocator);
+        print("\n\x1b[36m{s}\x1b[0m {s} {s}", .{ time, @tagName(req.head.method), request_path });
     }
 
     // 处理其他路径
@@ -112,6 +128,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".css")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "text/css; charset=utf-8" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -119,6 +136,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".js")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "application/javascript" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -133,6 +151,8 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".mp3")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "audio/mpeg" },
+            Header{ .name = "Accept-Ranges", .value = "bytes" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -141,7 +161,7 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
     if (std.mem.endsWith(u8, file_path, ".ttf")) {
         try response(&req, data, &[_]Header{
             Header{ .name = "Content-Type", .value = "font/ttf" },
-            Header{ .name = "Cache-Control", .value = "max-age=31536000" },
+            Header{ .name = "Cache-Control", .value = "public, max-age=31536000" },
         });
         return;
     }
@@ -154,6 +174,8 @@ fn handleConnection(conn: std.net.Server.Connection, allocator: std.mem.Allocato
 }
 
 pub fn print(comptime fmt: []const u8, args: anytype) void {
+    PRINT_LOCK.lock();
+    defer PRINT_LOCK.unlock();
     var out = std.io.getStdOut().writer();
     out.print(fmt, args) catch |err| {
         @panic(@errorName(err));
@@ -199,4 +221,33 @@ fn openInBrowser(url: []const u8, allocator: std.mem.Allocator) !void {
     process.stderr_behavior = .Ignore;
     process.stdout_behavior = .Ignore;
     try process.spawn();
+}
+
+fn formatTime(timestamp_ms: i64, allocator: std.mem.Allocator) ![]u8 {
+    const timezone_offset_sec: i64 = 8 * 3600; // UTC+8
+    const timezone_offset_ms: i64 = timezone_offset_sec * 1000;
+
+    // 应用时区偏移（毫秒）
+    const local_timestamp_ms = timestamp_ms + timezone_offset_ms;
+
+    const ms_per_day: i64 = 86400 * 1000;
+    const ms_since_midnight = @mod(local_timestamp_ms, ms_per_day);
+
+    const hours: u8 = @intCast(@mod(@divTrunc(ms_since_midnight, 3600 * 1000), 24));
+    const minutes: u8 = @intCast(@divTrunc(@mod(ms_since_midnight, 3600 * 1000), 60 * 1000));
+    const seconds: u8 = @intCast(@divTrunc(@mod(ms_since_midnight, 60 * 1000), 1000));
+    const millis: u16 = @intCast(@mod(ms_since_midnight, 1000));
+
+    return try std.fmt.allocPrint(allocator, "{d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}", .{ hours, minutes, seconds, millis });
+}
+
+fn getLogArg(allocator: anytype) !bool {
+    var args = try std.process.argsWithAllocator(allocator);
+    defer args.deinit();
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--log")) {
+            return true;
+        }
+    }
+    return false;
 }
