@@ -70,12 +70,15 @@
 								term.write('Thank you for listening');
 							}
 						} catch (error) {
+							if (error.message = 'abort') {
+								return;
+							}
 							if (stage) {
 								stage.stop();
 							}
 							term.writeln(error.message);
 						}
-						
+
 						setPlayLayer(1);
 						// 等待10秒关闭屏幕长亮
 						await ccore.sleep(10000);
@@ -88,7 +91,7 @@
 							term.write('\r\n' + hintString + 'Got it! Exiting...');
 							term.write('\r\n' + hintString + 'touch button to play');
 						}
-						
+
 						setPlayLayer(1);
 						// 关闭屏幕长亮
 						plus.device.setWakelock(false);
@@ -149,7 +152,7 @@
 					throw new Error('not supported status ' + '"' + status + '"');
 				}
 			}
-			
+
 			function hideHandler() {
 				if (!modelConfirm) {
 					modelConfirm = true;
@@ -209,6 +212,9 @@
 								term.write('Thank you for listening');
 							}
 						} catch (error) {
+							if (error.message = 'abort') {
+								return;
+							}
 							if (stage) {
 								stage.stop();
 							}

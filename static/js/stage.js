@@ -47,7 +47,7 @@ class Stage {
 
 			if (this.#isEnd) {
 				//确保在前两秒 ctrl+c退出后，不会执行后续代码
-				resolve();
+				reject(new Error('abort'));
 				return;
 			}
 
