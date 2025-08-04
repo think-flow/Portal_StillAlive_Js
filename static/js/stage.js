@@ -76,7 +76,13 @@ class Stage {
 
 			//等待lyric线程执行完毕
 			await worker;
-			resolve();
+			if (this.#isEnd) {
+				reject(new Error('abort'));
+				return;
+			} else {
+				resolve();
+				return;
+			}
 		});
 	}
 

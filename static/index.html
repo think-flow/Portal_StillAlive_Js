@@ -138,6 +138,7 @@
 					*/
 					play.classList.remove('play');
 					play.classList.add('stop');
+					play.style.visibility = 'hidden';
 					model.removeEventListener('click', hideHandler);
 					model.addEventListener('click', hideHandler);
 				} else if (status === 1) {
@@ -145,6 +146,7 @@
 					model.style.opacity = 1;
 					play.classList.remove('stop');
 					play.classList.add('play');
+					play.style.visibility = 'visible';
 					clearTimeout(timer);
 					modelConfirm = false;
 					model.removeEventListener('click', hideHandler);
@@ -157,8 +159,10 @@
 				if (!modelConfirm) {
 					modelConfirm = true;
 					model.style.opacity = 1;
+					play.style.visibility = 'visible';
 					timer = setTimeout(() => {
 						model.style.opacity = 0;
+						play.style.visibility = 'hidden';
 						modelConfirm = false
 					}, 2000);
 				}
