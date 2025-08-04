@@ -17,6 +17,9 @@
 			document.addEventListener('plusready', async function() {
 				//console.log("所有plus api都应该在此事件发生后调用，否则会出现plus is undefined。")
 
+				// 创建模态层
+				cratePlayLayer();
+
 				// 设置两次退出
 				setDoubleBack();
 
@@ -40,34 +43,59 @@
 					rows: term.rows
 				}, null, 2));
 
-				term.write(hintString);
+				term.write(hintString + 'touch button to play');
 				term.focus();
 
 				// 手机端，禁止弹出虚拟键盘，因为不需要与终端交互
 				term.textarea.readOnly = true;
 				term.textarea.tabIndex = -1;
 
-				// 开启屏幕长亮
-				plus.device.setWakelock(true);
-
+				setPlayLayer(1);
 				let stage = null;
-				try {
-					stage = new Stage();
-					await stage.run();
-					if (stage) {
-						stage.stop();
-						term.write('Thank you for listening');
-					}
-				} catch (error) {
-					if (stage) {
-						stage.stop();
-					}
-					term.writeln(error.message);
-				}
+				play.addEventListener('touchend', async (e) => {
+					// e.stopPropagation();
+					e.preventDefault();
 
-				// 等待3秒关闭屏幕长亮
-				await ccore.sleep(3000);
-				plus.device.setWakelock(false);
+					if (play.classList.contains('play')) {
+						term.write('\r\n' + hintString);
+						// 开启屏幕长亮
+						plus.device.setWakelock(true);
+						setPlayLayer(0);
+
+						try {
+							stage = new Stage();
+							await stage.run();
+							if (stage) {
+								stage.stop();
+								term.write('Thank you for listening');
+							}
+						} catch (error) {
+							if (stage) {
+								stage.stop();
+							}
+							term.writeln(error.message);
+						}
+						
+						setPlayLayer(1);
+						// 等待10秒关闭屏幕长亮
+						await ccore.sleep(10000);
+						plus.device.setWakelock(false);
+					} else if (play.classList.contains('stop')) {
+						// 手机端支持停止
+						if (stage) {
+							stage.stop();
+							stage = null;
+							term.write('\r\n' + hintString + 'Got it! Exiting...');
+							term.write('\r\n' + hintString + 'touch button to play');
+						}
+						
+						setPlayLayer(1);
+						// 关闭屏幕长亮
+						plus.device.setWakelock(false);
+					}
+				}, {
+					passive: false
+				});
 			});
 
 			function setDoubleBack() {
@@ -85,6 +113,52 @@
 						plus.runtime.quit();
 					}
 				});
+			}
+
+			function cratePlayLayer() {
+				const model = document.createElement('div');
+				const play = document.createElement('div');
+				model.id = 'model';
+				play.id = 'play';
+				model.appendChild(play);
+				document.body.appendChild(model);
+			}
+
+			let modelConfirm = false; // 标记是否已触发一次模态框touchend事件
+			let timer = null; // 定时器
+			function setPlayLayer(status) {
+				if (status === 0) {
+					// 隐藏
+					model.style.opacity = 0;
+					/*
+					  不需要使用touchend事件，使用click更能满足需求
+					*/
+					play.classList.remove('play');
+					play.classList.add('stop');
+					model.removeEventListener('click', hideHandler);
+					model.addEventListener('click', hideHandler);
+				} else if (status === 1) {
+					// 显示
+					model.style.opacity = 1;
+					play.classList.remove('stop');
+					play.classList.add('play');
+					clearTimeout(timer);
+					modelConfirm = false;
+					model.removeEventListener('click', hideHandler);
+				} else {
+					throw new Error('not supported status ' + '"' + status + '"');
+				}
+			}
+			
+			function hideHandler() {
+				if (!modelConfirm) {
+					modelConfirm = true;
+					model.style.opacity = 1;
+					timer = setTimeout(() => {
+						model.style.opacity = 0;
+						modelConfirm = false
+					}, 2000);
+				}
 			}
 		</script>
 	</head>
